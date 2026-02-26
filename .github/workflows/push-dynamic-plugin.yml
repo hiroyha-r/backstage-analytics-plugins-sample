@@ -1,0 +1,60 @@
+name: Push Dynamic Plugin to Quay.io
+
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./plugins/analytics-sample
+
+    env:
+      PLUGIN_NAME: backstage-analytics-plugins-sample
+      REGISTRY: quay.io
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '22'
+        cache: 'yarn'
+
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+      working-directory: .
+
+    - name: Extract Version
+      id: meta
+      run: |
+        echo "VERSION=$(cat package.json | jq .version -r)" >> $GITHUB_OUTPUT
+        echo "SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Export Plugin
+      run: |
+        npx @red-hat-developer-hub/cli@latest plugin export
+
+    - name: Login to Quay.io
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.QUAY_USERNAME }}
+        password: ${{ secrets.QUAY_TOKEN }}
+
+    - name: Package and Push Dynamic Plugin
+      run: |
+        TAGS="--tag ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:${{ steps.meta.outputs.VERSION }} \
+              --tag ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:${{ steps.meta.outputs.SHA }}"
+
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          TAGS="$TAGS --tag ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:latest"
+        fi
+
+        npx @red-hat-developer-hub/cli@latest plugin package $TAGS --push
