@@ -1,8 +1,4 @@
 import { 
-    analyticsApiRef,
-    configApiRef,
-    AnyApiFactory,
-    createApiFactory,
     AnalyticsApi,
     AnalyticsEvent,
     IdentityApi,
@@ -21,8 +17,10 @@ export class SampleAnalytics implements AnalyticsApi {
     private flushTimer?: ReturnType<typeof setInterval>;
 
     static fromConfig(configApi: Config, _options: { identityApi: IdentityApi }): SampleAnalytics {
-        const endpoint = configApi.getOptionalString('app.analytics.http.endpoint');
-        const flushIntervalMs = configApi.getOptionalNumber('app.analytics.http.flushIntervalMs') ?? 10000; 
+        const endpoint = configApi.getOptionalString('app.analytics.sample.endpoint');
+        console.log('endpoint:', endpoint);
+        const flushIntervalMs = configApi.getOptionalNumber('app.analytics.sample.flushIntervalMs') ?? 5000; 
+        console.log('flushIntervalMs:', flushIntervalMs);
         return new SampleAnalytics({ endpoint, flushIntervalMs });
     }
 
@@ -53,17 +51,27 @@ export class SampleAnalytics implements AnalyticsApi {
     }
 
     async flush(): Promise<void> {
-        if (this.buffer.length === 0 || !this.endpoint) return;
+        if (!this.endpoint) {
+            console.log('no endpoint configured, skipping flush');
+            return;
+        }
+        if (this.buffer.length === 0) {
+            console.log('no events to flush');
+            return;
+        }
 
         const events = [...this.buffer];
         this.buffer = [];
 
         try {
+            const body = JSON.stringify({ events });
             await fetch(this.endpoint, {
                 method: 'POST',
+                mode: 'cors',
                 headers: this.headers,
-                body: JSON.stringify({ events }),
+                body: body,
             });
+            console.log('events flushed:', body);
         } catch (error) {
             console.error('Error flushing analytics events:', error);
             this.buffer.unshift(...events);

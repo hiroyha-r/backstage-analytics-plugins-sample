@@ -4,7 +4,6 @@ import {
   ScmAuth,
 } from '@backstage/integration-react';
 import {
-  analyticsApiRef,
   AnyApiFactory,
   configApiRef,
   createApiFactory,
