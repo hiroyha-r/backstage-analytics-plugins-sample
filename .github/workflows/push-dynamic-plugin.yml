@@ -51,11 +51,19 @@ jobs:
 
     - name: Package and Push Dynamic Plugin
       run: |
-        npx @red-hat-developer-hub/cli@latest plugin package --tag ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:${{ steps.meta.outputs.VERSION }}
-        docker push ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:${{ steps.meta.outputs.VERSION }}
-        docker tag ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:${{ steps.meta.outputs.VERSION }} ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:${{ steps.meta.outputs.SHA }}
-        docker push ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:${{ steps.meta.outputs.SHA }}
+        BASE_IMAGE=${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}
+        VERSION_TAG=$BASE_IMAGE:${{ steps.meta.outputs.VERSION }}
+        SHA_TAG=$BASE_IMAGE:${{ steps.meta.outputs.SHA }}
+
+        npx @red-hat-developer-hub/cli@latest plugin package --tag $VERSION_TAG
+        
+        podman push $VERSION_TAG
+        
+        podman tag $VERSION_TAG $SHA_TAG
+        podman push $SHA_TAG
+        
         if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-          docker tag ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:${{ steps.meta.outputs.VERSION }} ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:latest
-          docker push ${{ env.REGISTRY }}/${{ secrets.QUAY_USER }}/${{ env.PLUGIN_NAME }}:latest
+          LATEST_TAG=$BASE_IMAGE:latest
+          podman tag $VERSION_TAG $LATEST_TAG
+          podman push $LATEST_TAG
         fi
